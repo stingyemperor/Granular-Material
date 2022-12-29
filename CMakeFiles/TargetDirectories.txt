@@ -1,0 +1,8 @@
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/Simulation2D_RESOURCES-dependencies.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/magnum-PBD2d.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/edit_cache.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/rebuild_cache.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/list_install_components.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/install.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/install/local.dir
+/Users/samraatgupta/Desktop/PBD-2d-sim-main/CMakeFiles/install/strip.dir
