@@ -1,89 +1,110 @@
-#
-#   This file is part of Magnum.
-#
-#   Original authors — credit is appreciated but not required:
-#
-#       2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 —
-#           Vladimír Vondruš <mosra@centrum.cz>
-#       2019 — Nghia Truong <nghiatruong.vn@gmail.com>
-#
-#   This is free and unencumbered software released into the public domain.
-#
-#   Anyone is free to copy, modify, publish, use, compile, sell, or distribute
-#   this software, either in source code form or as a compiled binary, for any
-#   purpose, commercial or non-commercial, and by any means.
-#
-#   In jurisdictions that recognize copyright laws, the author or authors of
-#   this software dedicate any and all copyright interest in the software to
-#   the public domain. We make this dedication for the benefit of the public
-#   at large and to the detriment of our heirs and successors. We intend this
-#   dedication to be an overt act of relinquishment in perpetuity of all
-#   present and future rights to this software under copyright law.
-#
-#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-#   THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-#   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-#   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+cmake_minimum_required(VERSION 3.22)
+project(app CXX)
 
-cmake_minimum_required(VERSION 3.4)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Debug)
+include(FetchContent)
 
 
-# Add module path in case this is project root
-if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../../modules/" ${CMAKE_MODULE_PATH})
+if (UNIX)
+find_package(OpenMP)
+if (OPENMP_FOUND)
+	if (CMAKE_VERSION VERSION_GREATER "3.8")
+		link_libraries(OpenMP::OpenMP_CXX)
+	else()
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+	endif()
+endif(OPENMP_FOUND)
+endif (UNIX)
+##########################################################################################
+# Add dependencies with FetchContent
+##########################################################################################
+
+function(add_git_dependency libName gitURL gitTag)
+    FetchContent_Declare(${libName}
+        GIT_REPOSITORY ${gitURL}
+        GIT_TAG        ${gitTag}
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
+    )
+    FetchContent_MakeAvailable(${libName})
+    target_compile_options(${libName} PRIVATE "-w")
+endfunction()
+
+
+#add glm
+find_package(glm REQUIRED)
+
+#add eigen
+
+find_package(Eigen3 REQUIRED)
+
+# Add Raylib
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
+set(BUILD_GAMES    OFF CACHE BOOL "" FORCE) # don't build the supplied example games
+add_git_dependency(
+    raylib
+    https://github.com/raysan5/raylib.git
+    4.5.0
+)
+
+
+
+##########################################################################################
+# Project executable setup
+##########################################################################################
+
+# Adding our source files
+# Define PROJECT_SOURCES as a list of all source files
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/sources/*.cpp")
+
+# Define PROJECT_INCLUDE to be the path to the include directory of the project
+set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/sources/")
+
+# Declaring our executable
+add_executable(${PROJECT_NAME})
+target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+
+
+##########################################################################################
+# Project build settings
+##########################################################################################
+
+add_definitions( -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} )
+
+# Setting ASSETS_PATH
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O0 -DDEBUG")
+
+    # Set the asset path macro to the absolute path on the dev machine
+    target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/")
+else()
+    # Set the asset path macro in release mode to a relative path that assumes the assets folder is in the same directory as the game executable
+    target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="./assets/")
 endif()
 
-find_package(Corrade REQUIRED Main)
-find_package(Magnum REQUIRED
-    GL
-    MeshTools
-    Primitives
-    SceneGraph
-    Shaders
-    Sdl2Application)
+# Set common compiler flags
+# SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wswitch")
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
 
-set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
-option(USE_TBB "Using Intel TBB if PBD Sim is built with parallel computation enabled" ON)
-
-corrade_add_resource(Simulation2D_RESOURCES resources.conf)
-
-add_executable(magnum-PBD2d 
-    Simulation2DExample.cpp
-    DrawableObjects/FlatShadeObject2D.h
-    DrawableObjects/ParticleGroup2D.h
-    DrawableObjects/ParticleGroup2D.cpp
-    DrawableObjects/WireframeObject2D.h
-    PBDSolver/SolverData.h
-    PBDSolver/SDFObject.h
-    PBDSolver/PBDSolver2D.h
-    PBDSolver/PBDSolver2D.cpp
-    Shaders/ParticleSphereShader2D.h
-    Shaders/ParticleSphereShader2D.cpp
-    ${Simulation2D_RESOURCES})
-
-target_link_libraries(magnum-PBD2d PRIVATE
-    Corrade::Main
-    Magnum::Application
-    Magnum::GL
-    Magnum::Magnum
-    Magnum::MeshTools
-    Magnum::Primitives
-    Magnum::SceneGraph
-    Magnum::Shaders)
-
-target_include_directories(magnum-PBD2d PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR})
-
-if(USE_TBB)
-	find_package(TBB CONFIG REQUIRED tbb)
-	target_link_libraries(magnum-PBD2d PRIVATE TBB::tbb)
+if (${PLATFORM} STREQUAL "Web")
+    # Tell Emscripten to build an .html file.
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Os")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s ASSERTIONS=1 -s WASM=1 -Os -Wall -s TOTAL_MEMORY=67108864 -s FORCE_FILESYSTEM=1 --preload-file assets/ --shell-file ../sources/minshell.html")
+    set(CMAKE_EXECUTABLE_SUFFIX ".html") # This line is used to set your executable to build with the emscripten html template so that you can directly open it.
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+    target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="/assets/") # Set the asset path macro in release mode to a relative path that assumes the assets folder is in the same directory as the game executable
 endif()
 
-install(TARGETS magnum-PBD2d DESTINATION ${MAGNUM_BINARY_INSTALL_DIR})
-
-# Make the executable a default target to build & run in Visual Studio
-set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT magnum-PBD2d)
+# Ensure that hot-reload is enabled for VS
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+endif()
